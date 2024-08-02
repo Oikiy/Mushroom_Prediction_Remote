@@ -1,1 +1,1 @@
-# Remote_Abalone_Regression
+## This is a notebook for the project: "Mushroom Prediction"
