@@ -105,11 +105,11 @@ def model_evaluation(models, X_train, y_train, X_val, y_val, kf,params=None,mode
 
     for i in range(len(list(models))):
         # Load the model if it is saved in the dictionary
-        if os.path.exists((f"/kaggle/working/{list(models.keys())[i]}"+"_"+mode+".pkl" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\{list(models.keys())[i]}"+"_"+mode+".pkl")):
+        if os.path.exists((f"/kaggle/working/{list(models.keys())[i]}"+"_"+mode+".pkl" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Models\\{list(models.keys())[i]}"+"_"+mode+".pkl")):
             
             print ('=' * 100)
             print ('Loading model:', list(models.keys())[i])
-            with open((f"/kaggle/working/{list(models.keys())[i]}"+"_"+mode+".pkl" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\{list(models.keys())[i]}"+"_"+mode+".pkl"), 'rb') as file:
+            with open((f"/kaggle/working/{list(models.keys())[i]}"+"_"+mode+".pkl" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Models\\{list(models.keys())[i]}"+"_"+mode+".pkl"), 'rb') as file:
                 model = load(file)
             print('Model-loading success:', list(models.keys())[i], 'Best Parameters:', model.get_params())
 
@@ -138,8 +138,8 @@ def model_evaluation(models, X_train, y_train, X_val, y_val, kf,params=None,mode
             # read the oof predictions and val predictions from the csv file if the mode is 'training'
             if mode == 'training':
                 print ('Reading oof predictions and val predictions')
-                oof_predictions = pd.read_csv(f"/kaggle/working/oof_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\oof_predictions.csv")
-                val_predictions = pd.read_csv(f"/kaggle/working/val_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\val_predictions.csv")
+                oof_predictions = pd.read_csv(f"/kaggle/working/oof_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Results\\oof_predictions.csv")
+                val_predictions = pd.read_csv(f"/kaggle/working/val_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Results\\val_predictions.csv")
                 oof_predictions_df[list(models.keys())[i]] = oof_predictions[list(models.keys())[i]]
                 val_predictions_df[list(models.keys())[i]] = val_predictions[list(models.keys())[i]]
                 print ('Model:', list(models.keys())[i], 'OOF predictions and val predictions read successfully')
@@ -157,9 +157,9 @@ def model_evaluation(models, X_train, y_train, X_val, y_val, kf,params=None,mode
                     para = params[list(models.keys())[i]]
                     # Tune the hyperparameters of the models using RandomizedSearchCV
                     if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ:
-                        RS = RandomizedSearchCV(model, para, n_iter=5, scoring='f1', refit=True, n_jobs=-1, random_state=SEED, verbose=1)
+                        RS = RandomizedSearchCV(model, para, n_iter=5, scoring=make_scorer(MCC, greater_is_better=True), refit=True, n_jobs=-1, random_state=SEED, verbose=1)
                     else:
-                        RS = RandomizedSearchCV(model, para, n_iter=5, scoring='f1', refit=True, n_jobs=6, random_state=SEED, verbose=1)
+                        RS = RandomizedSearchCV(model, para, n_iter=5, scoring=make_scorer(MCC, greater_is_better=True), refit=True, n_jobs=6, random_state=SEED, verbose=1)
                     RS.fit(X_train, y_train)
                     # Set the best parameters found by RandomizedSearchCV into the model
                 
@@ -167,9 +167,6 @@ def model_evaluation(models, X_train, y_train, X_val, y_val, kf,params=None,mode
                     model_params.append(RS.best_params_)
                     print('Model-tuning success:', list(models.keys())[i], 'Best Parameters:', RS.best_params_)
 
-                    # Save the parameters in a csv file
-                    model_params_df = pd.DataFrame(model_params)
-                    model_params_df.to_csv(f"/kaggle/working/model_params.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\model_params.csv", index=False)
 
                 elif mode == 'training':
                     # Get the out of fold predictions and the val predictions
@@ -180,9 +177,19 @@ def model_evaluation(models, X_train, y_train, X_val, y_val, kf,params=None,mode
                     val_predictions_df[list(models.keys())[i]] = val_predictions
                     print('Model-training success:', list(models.keys())[i])
                     # Save the predictions in a csv file
-                    oof_predictions_df.to_csv(f"/kaggle/working/oof_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\oof_predictions.csv", index=False)
-                    val_predictions_df.to_csv(f"/kaggle/working/val_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\val_predictions.csv", index=False)
+                    oof_predictions_df.to_csv(f"/kaggle/working/oof_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Results\\oof_predictions.csv", index=False)
+                    val_predictions_df.to_csv(f"/kaggle/working/val_predictions.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Results\\val_predictions.csv", index=False)
                     print('Model:', list(models.keys())[i], 'oof predictions and val predictions saved successfully')
+
+                # Save the model
+                with open((f"/kaggle/working/{list(models.keys())[i]}"+"_"+mode+".pkl" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Models\\{list(models.keys())[i]}"+"_"+mode+".pkl"), 'wb') as file:
+                    dump(best_model, file)
+                print('Model saved:', list(models.keys())[i])
+                
+                # Save the parameters in a csv file
+                model_params_df = pd.DataFrame(model_params)
+                model_params_df.to_csv(f"/kaggle/working/model_params.csv" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\Models\\model_params.csv", index=False)
+
 
                 # Make predictions
                 print ('Predicting')
@@ -216,14 +223,11 @@ def model_evaluation(models, X_train, y_train, X_val, y_val, kf,params=None,mode
                 print('\n')
                 continue
 
-    # Save the model
-    with open((f"/kaggle/working/{list(models.keys())[i]}"+"_"+mode+".pkl" if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f"Output\\{list(models.keys())[i]}"+"_"+mode+".pkl"), 'wb') as file:
-        dump(best_model, file)
-    print('Model saved:', list(models.keys())[i])
     # save the results in a dataframe
     results = pd.DataFrame({'Model': model_list, 'MCC_train': MCC_train_list, 'MCC_val': MCC_val_list})
+    
     # save the results in a csv file
-    results.to_csv(f"/kaggle/working/results_"+mode+'.csv' if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f'Output/results_'+mode+'.csv', index=False, date_format='%Y%m%d',mode='a')   
+    results.to_csv(f"/kaggle/working/results_"+mode+'.csv' if 'KAGGLE_KERNEL_RUN_TYPE' in os.environ else f'Output/Results\\results_'+mode+'.csv', index=False, date_format='%Y%m%d',mode='a')   
     if mode == 'tuning':
         return model_list, MCC_train_list, MCC_val_list, y_train_pred_list, model_params
     elif mode == 'training':
